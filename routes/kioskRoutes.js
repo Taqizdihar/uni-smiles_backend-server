@@ -14,4 +14,10 @@ router.get('/', kioskController.getAllKiosks);
  */
 router.get('/:id', kioskController.getKioskById);
 
+/**
+ * @route   POST /api/kiosks
+ * @desc    Create a new kiosk
+ */
+router.post('/', kioskController.createKiosk);
+
 module.exports = router;

@@ -22,6 +22,21 @@ const kioskModel = {
   getKioskById: async (id) => {
     const [rows] = await pool.query('SELECT * FROM kiosks WHERE id = ?', [id]);
     return rows.length > 0 ? rows[0] : null;
+  },
+
+  /**
+   * Create a new kiosk in the database
+   * @param {string} id - Kiosk ID
+   * @param {string} name - Kiosk Name
+   * @param {string} location - Kiosk Location
+   * @returns {Promise<Object>} SQL execution result
+   */
+  createKiosk: async (id, name, location) => {
+    const [result] = await pool.query(
+      'INSERT INTO kiosks (id, name, location) VALUES (?, ?, ?)',
+      [id, name, location]
+    );
+    return result;
   }
 };
 

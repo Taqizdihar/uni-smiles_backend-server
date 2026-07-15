@@ -2,8 +2,13 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
+const path = require('path');
 const pool = require('./config/db');
 const kioskRoutes = require('./routes/kioskRoutes');
+const frameTemplateRoutes = require('./routes/frameTemplateRoutes');
+const sessionRoutes = require('./routes/sessionRoutes');
+const authRoutes = require('./routes/authRoutes');
+const photoRoutes = require('./routes/photoRoutes');
 const { errorHandler, notFoundHandler } = require('./middlewares/errorHandler');
 
 const app = express();
@@ -36,10 +41,17 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
+// Static File Serving for Uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // ==========================================
 // Routes Registration
 // ==========================================
 app.use('/api/kiosks', kioskRoutes);
+app.use('/api/frame_templates', frameTemplateRoutes);
+app.use('/api/sessions', sessionRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/photos', photoRoutes);
 
 // Root Health Check Route
 app.get('/', (req, res) => {
@@ -73,6 +85,11 @@ const startServer = async () => {
       console.log(`🔗 Admin CORS Allowed: http://localhost:3000`);
       console.log(`🔗 Kiosk CORS Allowed: http://localhost:3001`);
       console.log(`📡 API endpoint available at: http://localhost:${PORT}/api/kiosks`);
+      console.log(`📡 API endpoint available at: http://localhost:${PORT}/api/frame_templates`);
+      console.log(`📡 API endpoint available at: http://localhost:${PORT}/api/sessions`);
+      console.log(`📡 API endpoint available at: http://localhost:${PORT}/api/auth`);
+      console.log(`📡 API endpoint available at: http://localhost:${PORT}/api/photos`);
+      console.log(`📁 Static files served at: http://localhost:${PORT}/uploads`);
     });
   } catch (error) {
     console.error('❌ Failed to connect to MySQL database:', error.message);
