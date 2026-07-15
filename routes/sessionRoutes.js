@@ -20,4 +20,10 @@ router.post('/start', sessionController.startSession);
  */
 router.post('/:id/complete', sessionController.completeSession);
 
+/**
+ * @route   POST /api/sessions/:id/send-email
+ * @desc    Send digital copy of session photo via email (mocked)
+ */
+router.post('/:id/send-email', sessionController.sendDigitalCopy);
+
 module.exports = router;

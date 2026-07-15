@@ -1,4 +1,5 @@
 const sessionModel = require('../models/sessionModel');
+const photoModel = require('../models/photoModel');
 
 /**
  * Session Controller
@@ -88,6 +89,48 @@ const sessionController = {
       return res.status(200).json({
         success: true,
         message: `Session ${id} completed successfully.`
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * @desc    Send digital copy of session photo via email (mocked)
+   * @route   POST /api/sessions/:id/send-email
+   * @access  Public
+   */
+  sendDigitalCopy: async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const { email } = req.body;
+
+      if (!id) {
+        res.status(400);
+        throw new Error('Session ID is required.');
+      }
+
+      if (!email) {
+        res.status(400);
+        throw new Error('Please provide an email address.');
+      }
+
+      // Check if there are uploaded photos for this session
+      const photos = await photoModel.getPhotosBySession(id);
+      const downloadLink = photos.length > 0
+        ? photos[0].url
+        : `/uploads/session_${encodeURIComponent(id)}_digital_copy.jpg`;
+
+      // Mock email sending process
+      return res.status(200).json({
+        success: true,
+        message: `Digital copy of photo sent successfully to ${email}.`,
+        data: {
+          session_id: id,
+          recipient_email: email,
+          download_link: downloadLink,
+          all_photos: photos.map(p => p.url)
+        }
       });
     } catch (error) {
       next(error);

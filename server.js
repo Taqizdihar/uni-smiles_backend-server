@@ -11,6 +11,8 @@ const authRoutes = require('./routes/authRoutes');
 const photoRoutes = require('./routes/photoRoutes');
 const filterRoutes = require('./routes/filterRoutes');
 const gestureRoutes = require('./routes/gestureRoutes');
+const printRoutes = require('./routes/printRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 const { errorHandler, notFoundHandler } = require('./middlewares/errorHandler');
 
 const app = express();
@@ -56,6 +58,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/photos', photoRoutes);
 app.use('/api/filters', filterRoutes);
 app.use('/api/gestures', gestureRoutes);
+app.use('/api/prints', printRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Root Health Check Route
 app.get('/', (req, res) => {
@@ -95,6 +99,8 @@ const startServer = async () => {
       console.log(`📡 API endpoint available at: http://localhost:${PORT}/api/photos`);
       console.log(`📡 API endpoint available at: http://localhost:${PORT}/api/filters`);
       console.log(`📡 API endpoint available at: http://localhost:${PORT}/api/gestures`);
+      console.log(`📡 API endpoint available at: http://localhost:${PORT}/api/prints`);
+      console.log(`📡 API endpoint available at: http://localhost:${PORT}/api/dashboard`);
       console.log(`📁 Static files served at: http://localhost:${PORT}/uploads`);
     });
   } catch (error) {
