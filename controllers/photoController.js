@@ -1,4 +1,5 @@
 const photoModel = require('../models/photoModel');
+const photoFilterModel = require('../models/photoFilterModel');
 
 /**
  * Photo Controller
@@ -6,7 +7,7 @@ const photoModel = require('../models/photoModel');
  */
 const photoController = {
   /**
-   * @desc    Upload a photo and save its metadata
+   * @desc    Upload a photo and save its metadata & filters
    * @route   POST /api/photos
    * @access  Public (or specific role if needed later)
    */
@@ -29,6 +30,24 @@ const photoController = {
 
       // Save photo metadata to DB
       const newPhoto = await photoModel.savePhoto(session_id, url);
+
+      // Handle applied filters if provided
+      let { filter_ids } = req.body;
+      if (filter_ids) {
+        // Parse filter_ids if it's sent as a JSON string (e.g. "[1, 3]") or comma-separated "1,3"
+        if (typeof filter_ids === 'string') {
+          try {
+             filter_ids = JSON.parse(filter_ids);
+          } catch(e) {
+             filter_ids = filter_ids.split(',').map(id => id.trim());
+          }
+        }
+        
+        if (Array.isArray(filter_ids) && filter_ids.length > 0) {
+           await photoFilterModel.addFiltersToPhoto(newPhoto.id, filter_ids);
+           newPhoto.filters = filter_ids;
+        }
+      }
 
       res.status(201).json({
         success: true,

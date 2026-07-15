@@ -9,6 +9,8 @@ const frameTemplateRoutes = require('./routes/frameTemplateRoutes');
 const sessionRoutes = require('./routes/sessionRoutes');
 const authRoutes = require('./routes/authRoutes');
 const photoRoutes = require('./routes/photoRoutes');
+const filterRoutes = require('./routes/filterRoutes');
+const gestureRoutes = require('./routes/gestureRoutes');
 const { errorHandler, notFoundHandler } = require('./middlewares/errorHandler');
 
 const app = express();
@@ -52,6 +54,8 @@ app.use('/api/frame_templates', frameTemplateRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/photos', photoRoutes);
+app.use('/api/filters', filterRoutes);
+app.use('/api/gestures', gestureRoutes);
 
 // Root Health Check Route
 app.get('/', (req, res) => {
@@ -89,6 +93,8 @@ const startServer = async () => {
       console.log(`📡 API endpoint available at: http://localhost:${PORT}/api/sessions`);
       console.log(`📡 API endpoint available at: http://localhost:${PORT}/api/auth`);
       console.log(`📡 API endpoint available at: http://localhost:${PORT}/api/photos`);
+      console.log(`📡 API endpoint available at: http://localhost:${PORT}/api/filters`);
+      console.log(`📡 API endpoint available at: http://localhost:${PORT}/api/gestures`);
       console.log(`📁 Static files served at: http://localhost:${PORT}/uploads`);
     });
   } catch (error) {
