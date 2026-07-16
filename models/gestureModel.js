@@ -17,6 +17,15 @@ const gestureModel = {
       [session_id, gesture_type, confidence_score, action_triggered]
     );
     return { id: result.insertId, ...gestureData };
+  },
+
+  /**
+   * Get all gesture logs from the database
+   * @returns {Promise<Array>} List of gesture logs
+   */
+  getAllGestures: async () => {
+    const [rows] = await pool.query('SELECT * FROM gesture_logs ORDER BY id DESC');
+    return rows;
   }
 };
 

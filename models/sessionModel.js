@@ -20,6 +20,21 @@ const sessionModel = {
   },
 
   /**
+   * Retrieve a single session by ID, including transaction details
+   * @param {string} id - Session ID
+   * @returns {Promise<Object|null>} Session record or null if not found
+   */
+  getSessionById: async (id) => {
+    const [rows] = await pool.query(`
+      SELECT s.*, t.transaction_code, t.amount, t.payment_method, t.status AS transaction_status 
+      FROM sessions s
+      LEFT JOIN transactions t ON s.id = t.session_id
+      WHERE s.id = ?
+    `, [id]);
+    return rows.length > 0 ? rows[0] : null;
+  },
+
+  /**
    * Start a new session
    * @param {Object} sessionData 
    * @returns {Promise<Object>} Created session data

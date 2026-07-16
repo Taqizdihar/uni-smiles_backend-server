@@ -25,6 +25,36 @@ const sessionController = {
   },
 
   /**
+   * @desc    Get single session by ID
+   * @route   GET /api/sessions/:id
+   * @access  Public (or Admin)
+   */
+  getSessionById: async (req, res, next) => {
+    try {
+      const { id } = req.params;
+
+      if (!id) {
+        res.status(400);
+        throw new Error('Session ID is required.');
+      }
+
+      const session = await sessionModel.getSessionById(id);
+
+      if (!session) {
+        res.status(404);
+        throw new Error(`Session not found with ID: ${id}`);
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: session
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
    * @desc    Start a new session
    * @route   POST /api/sessions/start
    * @access  Public

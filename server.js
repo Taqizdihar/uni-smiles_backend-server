@@ -13,6 +13,7 @@ const filterRoutes = require('./routes/filterRoutes');
 const gestureRoutes = require('./routes/gestureRoutes');
 const printRoutes = require('./routes/printRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const userRoutes = require('./routes/userRoutes');
 const { errorHandler, notFoundHandler } = require('./middlewares/errorHandler');
 
 const app = express();
@@ -55,6 +56,7 @@ app.use('/api/kiosks', kioskRoutes);
 app.use('/api/frame_templates', frameTemplateRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/photos', photoRoutes);
 app.use('/api/filters', filterRoutes);
 app.use('/api/gestures', gestureRoutes);
@@ -96,6 +98,7 @@ const startServer = async () => {
       console.log(`📡 API endpoint available at: http://localhost:${PORT}/api/frame_templates`);
       console.log(`📡 API endpoint available at: http://localhost:${PORT}/api/sessions`);
       console.log(`📡 API endpoint available at: http://localhost:${PORT}/api/auth`);
+      console.log(`📡 API endpoint available at: http://localhost:${PORT}/api/users`);
       console.log(`📡 API endpoint available at: http://localhost:${PORT}/api/photos`);
       console.log(`📡 API endpoint available at: http://localhost:${PORT}/api/filters`);
       console.log(`📡 API endpoint available at: http://localhost:${PORT}/api/gestures`);

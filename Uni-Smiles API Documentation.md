@@ -9,12 +9,13 @@ This document serves as the strict architectural standard and single source of t
 2. [Authentication & Authorization](#2-authentication--authorization)
 3. [System & Health Check](#3-system--health-check)
 4. [Authentication Endpoints](#4-authentication-endpoints)
-5. [Kiosk Operations Endpoints](#5-kiosk-operations-endpoints)
-6. [Frame Templates Endpoints](#6-frame-templates-endpoints)
-7. [Session & Transactions Endpoints](#7-session--transactions-endpoints)
-8. [Media & Assets Endpoints](#8-media--assets-endpoints)
-9. [Analytics & Logs Endpoints](#9-analytics--logs-endpoints)
-10. [Error Handling & Status Codes](#10-error-handling--status-codes)
+5. [User Management Endpoints](#5-user-management-endpoints)
+6. [Kiosk Operations Endpoints](#6-kiosk-operations-endpoints)
+7. [Frame Templates Endpoints](#7-frame-templates-endpoints)
+8. [Session & Transactions Endpoints](#8-session--transactions-endpoints)
+9. [Media & Assets Endpoints](#9-media--assets-endpoints)
+10. [Analytics & Logs Endpoints](#10-analytics--logs-endpoints)
+11. [Error Handling & Status Codes](#11-error-handling--status-codes)
 
 ---
 
@@ -30,17 +31,25 @@ The Uni-Smiles Backend API is built on **Node.js**, **Express**, and **MySQL** (
 
 ## 2. Authentication & Authorization
 
-Authentication is managed via JSON Web Tokens (**JWT**). 
-When an endpoint requires authorization, clients must pass the JWT inside the `Authorization` HTTP header using the `Bearer` schema:
+The Uni-Smiles Backend API supports two authentication and authorization mechanisms:
 
+### 2.1 JWT Bearer Token (Admin & Operator Auth)
+Used by the **Admin Dashboard** for administrative tasks. Clients must pass the JWT in the `Authorization` header using the `Bearer` schema:
 ```http
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
-| Authorization Status | Description |
-| :--- | :--- |
-| **No (Public)** | Endpoint is accessible without any token (designed for automated Kiosk operations or public logins). |
-| **Yes (JWT Bearer Token)** | Requires a valid JWT generated from `/api/auth/login`. If missing or invalid, the API returns `401 Unauthorized` or `403 Forbidden`. |
+### 2.2 API Key (Machine-to-Machine Auth)
+Used by the physical **Frontend Kiosks** for hardware and operations-facing routes. Kiosks must pass their unique secure API key in the `x-api-key` header:
+```http
+x-api-key: 64_character_hexadecimal_string_generated_on_kiosk_registration
+```
+
+| Authorization Mode | Header Required | Description |
+| :--- | :--- | :--- |
+| **No (Public)** | None | Accessible publicly by any client. |
+| **Yes (JWT Bearer)** | `Authorization: Bearer <token>` | Restricted to authenticated administrators/operators. |
+| **Yes (x-api-key)** | `x-api-key: <api_key>` | Restricted to physical hardware kiosks with matching active API keys. |
 
 ---
 
@@ -48,7 +57,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ### 3.1 Root Health Check
 - **Endpoint & Method:** `GET http://localhost:8000/`
-- **Description:** Verifies that the backend server is up and actively listening to requests. Primary consumers are monitoring scripts, developers, and load balancers.
+- **Description:** Verifies that the backend server is up and actively listening.
 - **Primary Consumer:** Both (Kiosk & Admin Dashboard)
 - **Authorization:** No (Public)
 - **Postman Testing Steps:**
@@ -71,7 +80,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ### 4.1 User Login
 - **Endpoint & Method:** `POST http://localhost:8000/api/auth/login`
-- **Description:** Authenticates a registered user or administrator using their email and password. Returns a signed JWT and user metadata upon successful verification.
+- **Description:** Authenticates a registered user or administrator using their email and password. Returns a signed JWT and user metadata.
 - **Primary Consumer:** Admin Dashboard
 - **Authorization:** No (Public)
 - **Postman Testing Steps:**
@@ -79,7 +88,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   2. Enter URL: `http://localhost:8000/api/auth/login`.
   3. Under **Headers**, add `Content-Type: application/json`.
   4. Under **Body**, select **raw** and **JSON**, then paste the payload below.
-- **Request Payload (Mock Data):**
+- **Request Payload:**
   ```json
   {
     "email": "admin@unismiles.com",
@@ -90,7 +99,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   ```json
   {
     "success": true,
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJidCI6MSwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzIwOTkwMDAwfQ.abc123signature",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzIwOTkwMDAwfQ.abc123signature",
     "user": {
       "id": 1,
       "name": "Super Admin",
@@ -103,7 +112,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ### 4.2 User Registration
 - **Endpoint & Method:** `POST http://localhost:8000/api/auth/register`
-- **Description:** Creates a new user profile with hashed passwords (`bcrypt`). Primarily used during system setup or when administrators invite new partner operators.
+- **Description:** Registers a new operator or administrator account with a hashed password.
 - **Primary Consumer:** Admin Dashboard
 - **Authorization:** No (Public)
 - **Postman Testing Steps:**
@@ -111,7 +120,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   2. Enter URL: `http://localhost:8000/api/auth/register`.
   3. Under **Headers**, add `Content-Type: application/json`.
   4. Under **Body**, select **raw** and **JSON**, then paste the payload below.
-- **Request Payload (Mock Data):**
+- **Request Payload:**
   ```json
   {
     "name": "Operator Kiosk A",
@@ -136,15 +145,15 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   }
   ```
 
-### 4.3 Get Current User (`Me`)
+### 4.3 Get Current User Profile (`Me`)
 - **Endpoint & Method:** `GET http://localhost:8000/api/auth/me`
-- **Description:** Validates the provided JWT token and returns the decoded payload of the currently authenticated user.
+- **Description:** Validates and decodes the active administrator JWT.
 - **Primary Consumer:** Admin Dashboard
 - **Authorization:** Yes (JWT Bearer Token)
 - **Postman Testing Steps:**
   1. Set method to `GET`.
   2. Enter URL: `http://localhost:8000/api/auth/me`.
-  3. Under **Authorization**, select **Bearer Token** and paste a valid JWT token.
+  3. Under **Authorization**, select **Bearer Token** and paste the login token.
   4. Click **Send**.
 - **Request Payload:** None
 - **Expected Response (`200 OK`):**
@@ -163,17 +172,114 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ---
 
-## 5. Kiosk Operations Endpoints
+## 5. User Management Endpoints
 
-### 5.1 Retrieve All Kiosks
+### 5.1 Retrieve All Users
+- **Endpoint & Method:** `GET http://localhost:8000/api/users`
+- **Description:** Retrieves all users from the system, excluding password hashes.
+- **Primary Consumer:** Admin Dashboard
+- **Authorization:** Yes (JWT Bearer Token)
+- **Request Payload:** None
+- **Expected Response (`200 OK`):**
+  ```json
+  {
+    "success": true,
+    "count": 2,
+    "data": [
+      {
+        "id": 1,
+        "name": "Super Admin",
+        "email": "admin@unismiles.com",
+        "role": "admin",
+        "partner_name": "Uni-Smiles HQ",
+        "created_at": "2026-07-15T03:22:06.000Z"
+      },
+      {
+        "id": 2,
+        "name": "Operator Kiosk A",
+        "email": "operator.a@unismiles.com",
+        "role": "operator",
+        "partner_name": "Telkom University Branch",
+        "created_at": "2026-07-15T04:12:30.000Z"
+      }
+    ]
+  }
+  ```
+
+### 5.2 Retrieve User by ID
+- **Endpoint & Method:** `GET http://localhost:8000/api/users/:id`
+- **Description:** Retrieves detailed user details by ID.
+- **Primary Consumer:** Admin Dashboard
+- **Authorization:** Yes (JWT Bearer Token)
+- **Request Payload:** None
+- **Expected Response (`200 OK`):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": 2,
+      "name": "Operator Kiosk A",
+      "email": "operator.a@unismiles.com",
+      "role": "operator",
+      "partner_name": "Telkom University Branch",
+      "created_at": "2026-07-15T04:12:30.000Z"
+    }
+  }
+  ```
+
+### 5.3 Update User Details
+- **Endpoint & Method:** `PUT http://localhost:8000/api/users/:id`
+- **Description:** Updates the profile info for a specific user ID.
+- **Primary Consumer:** Admin Dashboard
+- **Authorization:** Yes (JWT Bearer Token)
+- **Request Payload:**
+  ```json
+  {
+    "name": "Operator Kiosk A (Modified)",
+    "email": "operator.a.new@unismiles.com",
+    "role": "operator",
+    "partner_name": "Telkom University Library Center"
+  }
+  ```
+- **Expected Response (`200 OK`):**
+  ```json
+  {
+    "success": true,
+    "message": "User updated successfully.",
+    "data": {
+      "id": 2,
+      "name": "Operator Kiosk A (Modified)",
+      "email": "operator.a.new@unismiles.com",
+      "role": "operator",
+      "partner_name": "Telkom University Library Center",
+      "created_at": "2026-07-15T04:12:30.000Z"
+    }
+  }
+  ```
+
+### 5.4 Delete User
+- **Endpoint & Method:** `DELETE http://localhost:8000/api/users/:id`
+- **Description:** Permanently deletes a user from the system.
+- **Primary Consumer:** Admin Dashboard
+- **Authorization:** Yes (JWT Bearer Token)
+- **Request Payload:** None
+- **Expected Response (`200 OK`):**
+  ```json
+  {
+    "success": true,
+    "message": "User with ID 2 deleted successfully."
+  }
+  ```
+
+---
+
+## 6. Kiosk Operations Endpoints
+
+### 6.1 Retrieve All Kiosks
 - **Endpoint & Method:** `GET http://localhost:8000/api/kiosks`
-- **Description:** Retrieves the list of all registered photobooth kiosks across all locations.
+- **Description:** Retrieves the list of all registered photobooth kiosks.
 - **Primary Consumer:** Admin Dashboard
 - **Authorization:** No (Public)
-- **Postman Testing Steps:**
-  1. Set method to `GET`.
-  2. Enter URL: `http://localhost:8000/api/kiosks`.
-  3. Click **Send**.
 - **Request Payload:** None
 - **Expected Response (`200 OK`):**
   ```json
@@ -184,26 +290,19 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
       {
         "id": "KSK-TLKM-01",
         "name": "Uni-Smiles Telkom University Main Library",
-        "location": "Bandung, West Java"
-      },
-      {
-        "id": "KSK-GCA-02",
-        "name": "Uni-Smiles Grand City Mall",
-        "location": "Surabaya, East Java"
+        "location": "Bandung, West Java",
+        "user_id": 1,
+        "api_key": "7b0d7747e923e59074b1e5a59635fa29087cf24f5a6b0c6198f24a1b0254cb11"
       }
     ]
   }
   ```
 
-### 5.2 Retrieve Kiosk by ID
+### 6.2 Retrieve Kiosk by ID
 - **Endpoint & Method:** `GET http://localhost:8000/api/kiosks/:id`
-- **Description:** Fetches detailed information for a specific kiosk identifier (`id`). Used by kiosks during initialization to verify their identity and location.
+- **Description:** Fetches detailed information for a specific kiosk ID.
 - **Primary Consumer:** Both (Kiosk & Admin Dashboard)
 - **Authorization:** No (Public)
-- **Postman Testing Steps:**
-  1. Set method to `GET`.
-  2. Enter URL: `http://localhost:8000/api/kiosks/KSK-TLKM-01`.
-  3. Click **Send**.
 - **Request Payload:** None
 - **Expected Response (`200 OK`):**
   ```json
@@ -212,22 +311,18 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
     "data": {
       "id": "KSK-TLKM-01",
       "name": "Uni-Smiles Telkom University Main Library",
-      "location": "Bandung, West Java"
+      "location": "Bandung, West Java",
+      "user_id": 1
     }
   }
   ```
 
-### 5.3 Create New Kiosk
+### 6.3 Create New Kiosk
 - **Endpoint & Method:** `POST http://localhost:8000/api/kiosks`
-- **Description:** Registers a new physical kiosk unit in the system database.
+- **Description:** Registers a new kiosk unit. Automatically generates a secure 64-character API Key (`api_key`) and associates the kiosk with the creator user.
 - **Primary Consumer:** Admin Dashboard
-- **Authorization:** No (Public)
-- **Postman Testing Steps:**
-  1. Set method to `POST`.
-  2. Enter URL: `http://localhost:8000/api/kiosks`.
-  3. Under **Headers**, add `Content-Type: application/json`.
-  4. Under **Body**, select **raw** and **JSON**, then paste the payload below.
-- **Request Payload (Mock Data):**
+- **Authorization:** Yes (JWT Bearer Token)
+- **Request Payload:**
   ```json
   {
     "id": "KSK-BDG-03",
@@ -243,24 +338,62 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
     "data": {
       "id": "KSK-BDG-03",
       "name": "Uni-Smiles PVJ Mall Concourse",
-      "location": "Paris Van Java, Bandung"
+      "location": "Paris Van Java, Bandung",
+      "user_id": 1,
+      "api_key": "9a2f7c4e5d8a9b0c2e3f5b7a1d9e0f2c4b6a8d0e1f3a5b7c9d0e1f2a3b4c5d6e"
     }
+  }
+  ```
+
+### 6.4 Update Kiosk Details
+- **Endpoint & Method:** `PUT http://localhost:8000/api/kiosks/:id`
+- **Description:** Updates the name and location attributes of an existing kiosk.
+- **Primary Consumer:** Admin Dashboard
+- **Authorization:** Yes (JWT Bearer Token)
+- **Request Payload:**
+  ```json
+  {
+    "name": "Uni-Smiles PVJ Mall Floor 2",
+    "location": "Bandung, PVJ Mall Glamour Level"
+  }
+  ```
+- **Expected Response (`200 OK`):**
+  ```json
+  {
+    "success": true,
+    "message": "Kiosk updated successfully.",
+    "data": {
+      "id": "KSK-BDG-03",
+      "name": "Uni-Smiles PVJ Mall Floor 2",
+      "location": "Bandung, PVJ Mall Glamour Level",
+      "user_id": 1
+    }
+  }
+  ```
+
+### 6.5 Delete Kiosk
+- **Endpoint & Method:** `DELETE http://localhost:8000/api/kiosks/:id`
+- **Description:** Deletes a kiosk registration from the system database.
+- **Primary Consumer:** Admin Dashboard
+- **Authorization:** Yes (JWT Bearer Token)
+- **Request Payload:** None
+- **Expected Response (`200 OK`):**
+  ```json
+  {
+    "success": true,
+    "message": "Kiosk with ID KSK-BDG-03 deleted successfully."
   }
   ```
 
 ---
 
-## 6. Frame Templates Endpoints
+## 7. Frame Templates Endpoints
 
-### 6.1 Retrieve All Frame Templates
+### 7.1 Retrieve All Frame Templates
 - **Endpoint & Method:** `GET http://localhost:8000/api/frame_templates`
-- **Description:** Retrieves all available photobooth frame templates along with their layout configurations (`layout_config`).
+- **Description:** Retrieves all available photobooth frame templates.
 - **Primary Consumer:** Both (Kiosk & Admin Dashboard)
 - **Authorization:** No (Public)
-- **Postman Testing Steps:**
-  1. Set method to `GET`.
-  2. Enter URL: `http://localhost:8000/api/frame_templates`.
-  3. Click **Send**.
 - **Request Payload:** None
 - **Expected Response (`200 OK`):**
   ```json
@@ -282,36 +415,16 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
             { "index": 2, "x": 50, "y": 800, "width": 400, "height": 300 }
           ]
         }
-      },
-      {
-        "id": 2,
-        "name": "Minimalist Y2K Grid 4-Slot",
-        "category": "Modern",
-        "image_url": "https://cdn.unismiles.com/frames/y2k-grid-4.png",
-        "slot_count": 4,
-        "layout_config": {
-          "orientation": "grid",
-          "slots": [
-            { "index": 0, "x": 50, "y": 50, "width": 400, "height": 400 },
-            { "index": 1, "x": 500, "y": 50, "width": 400, "height": 400 },
-            { "index": 2, "x": 50, "y": 500, "width": 400, "height": 400 },
-            { "index": 3, "x": 500, "y": 500, "width": 400, "height": 400 }
-          ]
-        }
       }
     ]
   }
   ```
 
-### 6.2 Retrieve Frame Template by ID
+### 7.2 Retrieve Frame Template by ID
 - **Endpoint & Method:** `GET http://localhost:8000/api/frame_templates/:id`
-- **Description:** Retrieves detailed layout specifications and asset URLs for a specific frame template ID.
+- **Description:** Retrieves layout coordinates and specifications for a single template.
 - **Primary Consumer:** Both (Kiosk & Admin Dashboard)
 - **Authorization:** No (Public)
-- **Postman Testing Steps:**
-  1. Set method to `GET`.
-  2. Enter URL: `http://localhost:8000/api/frame_templates/1`.
-  3. Click **Send**.
 - **Request Payload:** None
 - **Expected Response (`200 OK`):**
   ```json
@@ -326,26 +439,19 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
       "layout_config": {
         "orientation": "vertical",
         "slots": [
-          { "index": 0, "x": 50, "y": 100, "width": 400, "height": 300 },
-          { "index": 1, "x": 50, "y": 450, "width": 400, "height": 300 },
-          { "index": 2, "x": 50, "y": 800, "width": 400, "height": 300 }
+          { "index": 0, "x": 50, "y": 100, "width": 400, "height": 300 }
         ]
       }
     }
   }
   ```
 
-### 6.3 Create New Frame Template
+### 7.3 Create Frame Template
 - **Endpoint & Method:** `POST http://localhost:8000/api/frame_templates`
-- **Description:** Adds a new custom frame template design and layout configuration to the catalog.
+- **Description:** Adds a new custom frame template design.
 - **Primary Consumer:** Admin Dashboard
 - **Authorization:** No (Public)
-- **Postman Testing Steps:**
-  1. Set method to `POST`.
-  2. Enter URL: `http://localhost:8000/api/frame_templates`.
-  3. Under **Headers**, add `Content-Type: application/json`.
-  4. Under **Body**, select **raw** and **JSON**, then paste the payload below.
-- **Request Payload (Mock Data):**
+- **Request Payload:**
   ```json
   {
     "name": "Graduation Special 2026",
@@ -355,8 +461,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
     "layout_config": {
       "orientation": "horizontal",
       "slots": [
-        { "index": 0, "x": 100, "y": 150, "width": 500, "height": 650 },
-        { "index": 1, "x": 650, "y": 150, "width": 500, "height": 650 }
+        { "index": 0, "x": 100, "y": 150, "width": 500, "height": 650 }
       ]
     }
   }
@@ -371,40 +476,27 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
       "name": "Graduation Special 2026",
       "category": "Seasonal",
       "image_url": "https://cdn.unismiles.com/frames/grad-2026.png",
-      "slot_count": 2,
-      "layout_config": {
-        "orientation": "horizontal",
-        "slots": [
-          { "index": 0, "x": 100, "y": 150, "width": 500, "height": 650 },
-          { "index": 1, "x": 650, "y": 150, "width": 500, "height": 650 }
-        ]
-      }
+      "slot_count": 2
     }
   }
   ```
 
-### 6.4 Update Frame Template
+### 7.4 Update Frame Template
 - **Endpoint & Method:** `PUT http://localhost:8000/api/frame_templates/:id`
-- **Description:** Updates the attributes, image asset, or slot coordinates of an existing frame template.
+- **Description:** Updates the parameters of an existing template.
 - **Primary Consumer:** Admin Dashboard
 - **Authorization:** No (Public)
-- **Postman Testing Steps:**
-  1. Set method to `PUT`.
-  2. Enter URL: `http://localhost:8000/api/frame_templates/3`.
-  3. Under **Headers**, add `Content-Type: application/json`.
-  4. Under **Body**, select **raw** and **JSON**, then paste the payload below.
-- **Request Payload (Mock Data):**
+- **Request Payload:**
   ```json
   {
-    "name": "Graduation Special 2026 (Updated Gold Edition)",
+    "name": "Graduation Special 2026 (Updated Gold)",
     "category": "Seasonal",
     "image_url": "https://cdn.unismiles.com/frames/grad-2026-gold.png",
     "slot_count": 2,
     "layout_config": {
       "orientation": "horizontal",
       "slots": [
-        { "index": 0, "x": 120, "y": 160, "width": 500, "height": 650 },
-        { "index": 1, "x": 660, "y": 160, "width": 500, "height": 650 }
+        { "index": 0, "x": 120, "y": 160, "width": 500, "height": 650 }
       ]
     }
   }
@@ -416,30 +508,16 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
     "message": "Frame template updated successfully.",
     "data": {
       "id": 3,
-      "name": "Graduation Special 2026 (Updated Gold Edition)",
-      "category": "Seasonal",
-      "image_url": "https://cdn.unismiles.com/frames/grad-2026-gold.png",
-      "slot_count": 2,
-      "layout_config": {
-        "orientation": "horizontal",
-        "slots": [
-          { "index": 0, "x": 120, "y": 160, "width": 500, "height": 650 },
-          { "index": 1, "x": 660, "y": 160, "width": 500, "height": 650 }
-        ]
-      }
+      "name": "Graduation Special 2026 (Updated Gold)"
     }
   }
   ```
 
-### 6.5 Delete Frame Template
+### 7.5 Delete Frame Template
 - **Endpoint & Method:** `DELETE http://localhost:8000/api/frame_templates/:id`
-- **Description:** Removes a frame template from the system database.
+- **Description:** Removes a frame template from the system.
 - **Primary Consumer:** Admin Dashboard
 - **Authorization:** No (Public)
-- **Postman Testing Steps:**
-  1. Set method to `DELETE`.
-  2. Enter URL: `http://localhost:8000/api/frame_templates/3`.
-  3. Click **Send**.
 - **Request Payload:** None
 - **Expected Response (`200 OK`):**
   ```json
@@ -451,17 +529,13 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ---
 
-## 7. Session & Transactions Endpoints
+## 8. Session & Transactions Endpoints
 
-### 7.1 Retrieve All Sessions
+### 8.1 Retrieve All Sessions
 - **Endpoint & Method:** `GET http://localhost:8000/api/sessions`
-- **Description:** Retrieves all user sessions alongside their financial transaction data (`amount`, `payment_method`).
+- **Description:** Retrieves all session histories, including transaction code and amount.
 - **Primary Consumer:** Admin Dashboard
 - **Authorization:** No (Public)
-- **Postman Testing Steps:**
-  1. Set method to `GET`.
-  2. Enter URL: `http://localhost:8000/api/sessions`.
-  3. Click **Send**.
 - **Request Payload:** None
 - **Expected Response (`200 OK`):**
   ```json
@@ -482,17 +556,38 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   }
   ```
 
-### 7.2 Start New Session
-- **Endpoint & Method:** `POST http://localhost:8000/api/sessions/start`
-- **Description:** Initiates a new photobooth session on a kiosk when a customer selects a frame template. Automatically generates a unique session ID prefixed with `#US-` if one is not provided.
-- **Primary Consumer:** Kiosk
+### 8.2 Retrieve Session by ID
+- **Endpoint & Method:** `GET http://localhost:8000/api/sessions/:id`
+- **Description:** Fetches details of a specific session, including code, amount, and payment status.
+- **Primary Consumer:** Admin Dashboard
 - **Authorization:** No (Public)
-- **Postman Testing Steps:**
-  1. Set method to `POST`.
-  2. Enter URL: `http://localhost:8000/api/sessions/start`.
-  3. Under **Headers**, add `Content-Type: application/json`.
-  4. Under **Body**, select **raw** and **JSON**, then paste the payload below.
-- **Request Payload (Mock Data):**
+- **Request Payload:** None
+- **Expected Response (`200 OK`):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "#US-1720995123456",
+      "kiosk_id": "KSK-TLKM-01",
+      "frame_template_id": 1,
+      "status": "completed",
+      "created_at": "2026-07-15T10:30:00.000Z",
+      "transaction_code": "QRIS-PAY-99887766",
+      "amount": "35000.00",
+      "payment_method": "QRIS",
+      "transaction_status": "completed"
+    }
+  }
+  ```
+
+### 8.3 Start New Session
+- **Endpoint & Method:** `POST http://localhost:8000/api/sessions/start`
+- **Description:** Begins a photobooth session. Generates ID `#US-` plus timestamp if not supplied.
+- **Primary Consumer:** Kiosk
+- **Authorization:** Yes (x-api-key)
+- **Request Headers:**
+  - `x-api-key: <api_key>`
+- **Request Payload:**
   ```json
   {
     "id": "#US-1721001234567",
@@ -514,17 +609,14 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   }
   ```
 
-### 7.3 Complete Session & Record Transaction
+### 8.4 Complete Session & Record Transaction
 - **Endpoint & Method:** `POST http://localhost:8000/api/sessions/:id/complete`
-- **Description:** Atomically marks an active session as `completed` and records its financial transaction details (`transaction_code`, `amount`, `payment_method`, `status`) inside a MySQL database transaction block (`BEGIN ... COMMIT`).
+- **Description:** Marks a session `completed` and registers transaction code/amount in an atomic database transaction.
 - **Primary Consumer:** Kiosk
-- **Authorization:** No (Public)
-- **Postman Testing Steps:**
-  1. Set method to `POST`.
-  2. Enter URL: `http://localhost:8000/api/sessions/%23US-1721001234567/complete` *(Note: `%23` is URL-encoded `#`)*.
-  3. Under **Headers**, add `Content-Type: application/json`.
-  4. Under **Body**, select **raw** and **JSON**, then paste the payload below.
-- **Request Payload (Mock Data):**
+- **Authorization:** Yes (x-api-key)
+- **Request Headers:**
+  - `x-api-key: <api_key>`
+- **Request Payload:**
   ```json
   {
     "transaction_code": "QRIS-PAY-99887766",
@@ -541,17 +633,14 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   }
   ```
 
-### 7.4 Send Digital Copy via Email
+### 8.5 Send Digital Copy via Email (Mocked)
 - **Endpoint & Method:** `POST http://localhost:8000/api/sessions/:id/send-email`
-- **Description:** Delivers a digital copy of the session photo and collage to the customer's email address. Returns the direct download link of the photo along with a success message.
+- **Description:** Delivers a digital copy download link for captured session images to the specified email.
 - **Primary Consumer:** Kiosk
-- **Authorization:** No (Public)
-- **Postman Testing Steps:**
-  1. Set method to `POST`.
-  2. Enter URL: `http://localhost:8000/api/sessions/%23US-1721001234567/send-email`.
-  3. Under **Headers**, add `Content-Type: application/json`.
-  4. Under **Body**, select **raw** and **JSON**, then paste the payload below.
-- **Request Payload (Mock Data):**
+- **Authorization:** Yes (x-api-key)
+- **Request Headers:**
+  - `x-api-key: <api_key>`
+- **Request Payload:**
   ```json
   {
     "email": "customer.smile@gmail.com"
@@ -575,24 +664,20 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ---
 
-## 8. Media & Assets Endpoints
+## 9. Media & Assets Endpoints
 
-### 8.1 Upload Photo
+### 9.1 Upload Photo
 - **Endpoint & Method:** `POST http://localhost:8000/api/photos`
-- **Description:** Uploads a captured photo from the kiosk, stores it locally inside `/uploads`, saves its record inside the `photos` table, and applies any optional visual filter associations.
+- **Description:** Uploads a captured frame photo associated with a specific session.
 - **Primary Consumer:** Kiosk
-- **Authorization:** No (Public)
-- **Postman Testing Steps:**
-  1. Set method to `POST`.
-  2. Enter URL: `http://localhost:8000/api/photos`.
-  3. Under **Body**, select **form-data**.
-  4. Add the form data keys and values specified below.
-- **Request Payload (`multipart/form-data` specification):**
-  | Key | Type | Description / Example Value |
+- **Authorization:** Yes (x-api-key)
+- **Request Headers:**
+  - `x-api-key: <api_key>`
+- **Request Payload (`multipart/form-data`):**
+  | Key | Type | Description |
   | :--- | :--- | :--- |
-  | `photo` | **File** | Select the captured image file (`.jpg`, `.png`). **Required.** |
-  | `session_id` | **Text** | `#US-1721001234567` **Required.** |
-  | `filter_ids` | **Text** | `[1, 3]` (JSON string array) or `1,3` (comma-separated). **Optional.** |
+  | `photo` | **File** | Captured photo image file (`.jpg` or `.png`). **Required.** |
+  | `session_id` | **Text** | Target session ID (e.g. `#US-1721001234567`). **Required.** |
 - **Expected Response (`201 Created`):**
   ```json
   {
@@ -601,21 +686,16 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
     "data": {
       "id": 15,
       "session_id": "#US-1721001234567",
-      "url": "/uploads/1721001255000-123456789.jpg",
-      "filters": [1, 3]
+      "url": "/uploads/1721001255000-123456789.jpg"
     }
   }
   ```
 
-### 8.2 Retrieve Photos by Session ID
+### 9.2 Retrieve Photos by Session ID
 - **Endpoint & Method:** `GET http://localhost:8000/api/photos/session/:sessionId`
-- **Description:** Retrieves all photos uploaded during a specific session ID.
+- **Description:** Retrieves all photo urls linked with the session identifier.
 - **Primary Consumer:** Both (Kiosk & Admin Dashboard)
 - **Authorization:** No (Public)
-- **Postman Testing Steps:**
-  1. Set method to `GET`.
-  2. Enter URL: `http://localhost:8000/api/photos/session/%23US-1721001234567`.
-  3. Click **Send**.
 - **Request Payload:** None
 - **Expected Response (`200 OK`):**
   ```json
@@ -632,15 +712,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   }
   ```
 
-### 8.3 Retrieve Active Filters
+### 9.3 Retrieve Active Filters
 - **Endpoint & Method:** `GET http://localhost:8000/api/filters`
-- **Description:** Retrieves all active photo filters available for real-time application on the kiosk camera preview (`is_active = 1`).
+- **Description:** Retrieves active photo filters available for the camera preview.
 - **Primary Consumer:** Kiosk
 - **Authorization:** No (Public)
-- **Postman Testing Steps:**
-  1. Set method to `GET`.
-  2. Enter URL: `http://localhost:8000/api/filters`.
-  3. Click **Send**.
 - **Request Payload:** None
 - **Expected Response (`200 OK`):**
   ```json
@@ -653,38 +729,91 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         "name": "B&W Classic",
         "css_filter": "grayscale(100%) contrast(120%)",
         "is_active": 1
-      },
-      {
-        "id": 2,
-        "name": "Warm Sunset",
-        "css_filter": "sepia(40%) saturate(140%) hue-rotate(-10deg)",
-        "is_active": 1
-      },
-      {
-        "id": 3,
-        "name": "Soft Pastel Glow",
-        "css_filter": "brightness(110%) contrast(90%) saturate(120%)",
-        "is_active": 1
       }
     ]
   }
   ```
 
+### 9.4 Create New Filter
+- **Endpoint & Method:** `POST http://localhost:8000/api/filters`
+- **Description:** Adds a new filter to the system database catalog.
+- **Primary Consumer:** Admin Dashboard
+- **Authorization:** No (Public)
+- **Request Payload:**
+  ```json
+  {
+    "name": "Vintage Grain",
+    "css_filter": "sepia(20%) contrast(110%) brightness(95%)",
+    "is_active": 1
+  }
+  ```
+- **Expected Response (`201 Created`):**
+  ```json
+  {
+    "success": true,
+    "message": "Filter created successfully.",
+    "data": {
+      "id": 4,
+      "name": "Vintage Grain",
+      "css_filter": "sepia(20%) contrast(110%) brightness(95%)",
+      "is_active": 1
+    }
+  }
+  ```
+
+### 9.5 Update Filter
+- **Endpoint & Method:** `PUT http://localhost:8000/api/filters/:id`
+- **Description:** Updates details and settings of a specific filter.
+- **Primary Consumer:** Admin Dashboard
+- **Authorization:** No (Public)
+- **Request Payload:**
+  ```json
+  {
+    "name": "Vintage Soft Grain",
+    "css_filter": "sepia(15%) contrast(105%)",
+    "is_active": 0
+  }
+  ```
+- **Expected Response (`200 OK`):**
+  ```json
+  {
+    "success": true,
+    "message": "Filter updated successfully.",
+    "data": {
+      "id": 4,
+      "name": "Vintage Soft Grain",
+      "css_filter": "sepia(15%) contrast(105%)",
+      "is_active": 0
+    }
+  }
+  ```
+
+### 9.6 Delete Filter
+- **Endpoint & Method:** `DELETE http://localhost:8000/api/filters/:id`
+- **Description:** Deletes a filter from the database.
+- **Primary Consumer:** Admin Dashboard
+- **Authorization:** No (Public)
+- **Request Payload:** None
+- **Expected Response (`200 OK`):**
+  ```json
+  {
+    "success": true,
+    "message": "Filter with ID 4 deleted successfully."
+  }
+  ```
+
 ---
 
-## 9. Analytics & Logs Endpoints
+## 10. Analytics & Logs Endpoints
 
-### 9.1 Log Kiosk Gesture
+### 10.1 Log Kiosk Gesture
 - **Endpoint & Method:** `POST http://localhost:8000/api/gestures`
-- **Description:** Logs hand gestures recognized by the kiosk vision system (`V-Sign`, `Wave`, `Palm`) alongside confidence scores and triggered actions (`take_photo`, `start_session`).
+- **Description:** Logs hand gestures recognized by physical kiosk vision system.
 - **Primary Consumer:** Kiosk
-- **Authorization:** No (Public)
-- **Postman Testing Steps:**
-  1. Set method to `POST`.
-  2. Enter URL: `http://localhost:8000/api/gestures`.
-  3. Under **Headers**, add `Content-Type: application/json`.
-  4. Under **Body**, select **raw** and **JSON**, then paste the payload below.
-- **Request Payload (Mock Data):**
+- **Authorization:** Yes (x-api-key)
+- **Request Headers:**
+  - `x-api-key: <api_key>`
+- **Request Payload:**
   ```json
   {
     "session_id": "#US-1721001234567",
@@ -708,17 +837,38 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   }
   ```
 
-### 9.2 Record Print Log
-- **Endpoint & Method:** `POST http://localhost:8000/api/prints`
-- **Description:** Inserts a print log from the kiosk right after printing a photo collage. Allows administrators to monitor paper rolls and track hardware print failures (`status`: `success` | `failed`).
-- **Primary Consumer:** Kiosk
+### 10.2 Retrieve All Gesture Logs
+- **Endpoint & Method:** `GET http://localhost:8000/api/gestures`
+- **Description:** Retrieves all recorded computer vision gesture logs.
+- **Primary Consumer:** Admin Dashboard
 - **Authorization:** No (Public)
-- **Postman Testing Steps:**
-  1. Set method to `POST`.
-  2. Enter URL: `http://localhost:8000/api/prints`.
-  3. Under **Headers**, add `Content-Type: application/json`.
-  4. Under **Body**, select **raw** and **JSON**, then paste the payload below.
-- **Request Payload (Mock Data):**
+- **Request Payload:** None
+- **Expected Response (`200 OK`):**
+  ```json
+  {
+    "success": true,
+    "count": 1,
+    "data": [
+      {
+        "id": 42,
+        "session_id": "#US-1721001234567",
+        "gesture_type": "V-Sign",
+        "confidence_score": 0.98,
+        "action_triggered": "take_photo",
+        "created_at": "2026-07-15T12:00:00.000Z"
+      }
+    ]
+  }
+  ```
+
+### 10.3 Record Print Log
+- **Endpoint & Method:** `POST http://localhost:8000/api/prints`
+- **Description:** Records a print log from the kiosk to track print status and monitor paper levels.
+- **Primary Consumer:** Kiosk
+- **Authorization:** Yes (x-api-key)
+- **Request Headers:**
+  - `x-api-key: <api_key>`
+- **Request Payload:**
   ```json
   {
     "kiosk_id": "KSK-TLKM-01",
@@ -742,15 +892,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   }
   ```
 
-### 9.3 Retrieve All Print Logs
+### 10.4 Retrieve All Print Logs
 - **Endpoint & Method:** `GET http://localhost:8000/api/prints`
-- **Description:** Retrieves all recorded print history logs. Supports filtering by specific kiosk via optional query string `?kiosk_id=...`.
+- **Description:** Retrieves recorded print history. Optional `?kiosk_id=...` filter.
 - **Primary Consumer:** Admin Dashboard
 - **Authorization:** No (Public)
-- **Postman Testing Steps:**
-  1. Set method to `GET`.
-  2. Enter URL: `http://localhost:8000/api/prints?kiosk_id=KSK-TLKM-01`.
-  3. Click **Send**.
 - **Request Payload:** None
 - **Expected Response (`200 OK`):**
   ```json
@@ -769,15 +915,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   }
   ```
 
-### 9.4 Get Dashboard Analytics Stats
+### 10.5 Get Dashboard Analytics Stats
 - **Endpoint & Method:** `GET http://localhost:8000/api/dashboard/stats`
-- **Description:** Returns real-time aggregated operational statistics for the admin dashboard. Executes concurrent database queries (`Promise.all`) to calculate total revenue, total sessions completed today, and the top 3 most popular frame templates.
+- **Description:** Returns aggregated key performance statistics for the admin panel.
 - **Primary Consumer:** Admin Dashboard
 - **Authorization:** No (Public)
-- **Postman Testing Steps:**
-  1. Set method to `GET`.
-  2. Enter URL: `http://localhost:8000/api/dashboard/stats`.
-  3. Click **Send**.
 - **Request Payload:** None
 - **Expected Response (`200 OK`):**
   ```json
@@ -793,20 +935,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
           "category": "Vintage",
           "image_url": "https://cdn.unismiles.com/frames/retro-strip-3.png",
           "usage_count": 18
-        },
-        {
-          "id": 2,
-          "name": "Minimalist Y2K Grid 4-Slot",
-          "category": "Modern",
-          "image_url": "https://cdn.unismiles.com/frames/y2k-grid-4.png",
-          "usage_count": 14
-        },
-        {
-          "id": 3,
-          "name": "Graduation Special 2026",
-          "category": "Seasonal",
-          "image_url": "https://cdn.unismiles.com/frames/grad-2026.png",
-          "usage_count": 10
         }
       ]
     }
@@ -815,28 +943,26 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ---
 
-## 10. Error Handling & Status Codes
+## 11. Error Handling & Status Codes
 
-All endpoints follow a standardized JSON response format when an error occurs (`middlewares/errorHandler.js`):
-
+All endpoints return errors in a standardized JSON error format:
 ```json
 {
   "success": false,
-  "message": "Please provide all required fields: kiosk_id, session_id, status, paper_stock_left",
-  "stack": "Error: Please provide all required fields...\n    at printController.createPrintLog..."
+  "message": "Please provide required fields: name, css_filter",
+  "stack": "Error: Please provide required fields...\n    at filterController.updateFilter..."
 }
 ```
+*(Note: `stack` traces are omitted in production environments where `NODE_ENV=production`)*
 
-*(Note: The `stack` field is only included when running with `NODE_ENV=development`)*
-
-### Summary of Common HTTP Status Codes
-| Status Code | Name | Common Trigger |
+### Common HTTP Status Codes Table
+| Status Code | Name | Typical Trigger |
 | :---: | :--- | :--- |
-| **200** | `OK` | Request succeeded (`GET`, `PUT`, `DELETE`, or completed actions). |
-| **201** | `Created` | New resource successfully created (`POST`). |
-| **400** | `Bad Request` | Missing required fields (`session_id`, `kiosk_id`), invalid types, or malformed body. |
-| **401** | `Unauthorized` | Missing or invalid login credentials, or missing JWT `Bearer` token. |
-| **403** | `Forbidden` | JWT `Bearer` token failed signature verification or expired. |
-| **404** | `Not Found` | Requested resource ID (kiosk or frame template) or route path does not exist. |
-| **409** | `Conflict` | Resource conflict, such as creating a kiosk or user with an ID/email that already exists. |
-| **500** | `Internal Server Error` | Unhandled database error, SQL constraint failure, or server exception. |
+| **200** | `OK` | Request succeeded. |
+| **201** | `Created` | New resource created successfully (`POST`). |
+| **400** | `Bad Request` | Missing required parameters or malformed body payload. |
+| **401** | `Unauthorized` | Missing or invalid auth header (`Authorization` Bearer or `x-api-key`). |
+| **403** | `Forbidden` | Provided JWT token has failed signature verification or expired. |
+| **404** | `Not Found` | Target path or resource ID does not exist in the database. |
+| **409** | `Conflict` | Resource conflict (e.g. duplicate user email or kiosk ID registration). |
+| **500** | `Internal Server Error` | Database connection error, query timeout, or general server exception. |

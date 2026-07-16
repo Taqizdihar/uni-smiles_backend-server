@@ -34,6 +34,24 @@ const gestureController = {
     } catch (error) {
       next(error);
     }
+  },
+
+  /**
+   * @desc    Get all gesture logs
+   * @route   GET /api/gestures
+   * @access  Public (or Admin)
+   */
+  getAllGestures: async (req, res, next) => {
+    try {
+      const gestures = await gestureModel.getAllGestures();
+      return res.status(200).json({
+        success: true,
+        count: gestures.length,
+        data: gestures
+      });
+    } catch (error) {
+      next(error);
+    }
   }
 };
 

@@ -25,6 +25,16 @@ const verifyToken = (req, res, next) => {
     
     // Attach decoded user info to request object
     req.user = decoded;
+
+    // Ensure the role is valid for access
+    const validRoles = ['Super Admin', 'Admin Mitra', 'Viewer'];
+    if (req.user && !validRoles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: `Not authorized, role ${req.user.role} is invalid`
+      });
+    }
+
     next();
   } catch (error) {
     return res.status(403).json({
