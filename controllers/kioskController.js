@@ -1,6 +1,6 @@
 const kioskModel = require('../models/kioskModel');
 const crypto = require('crypto');
-
+const pool = require('../config/db');
 /**
  * Kiosk Controller
  * Handles HTTP requests/responses for Kiosk endpoints.
@@ -21,6 +21,19 @@ const kioskController = {
       });
     } catch (error) {
       next(error);
+    }
+  },
+
+  getAdminKiosks: async (req, res) => {
+    try {
+      const user_id = req.user.id;
+      const [rows] = await pool.query(
+        'SELECT id, name, location, base_price, api_key, status, health, last_heartbeat FROM kiosks WHERE user_id = ? AND deleted_at IS NULL',
+        [user_id]
+      );
+      return res.status(200).json({ success: true, data: rows });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message });
     }
   },
 
@@ -59,53 +72,20 @@ const kioskController = {
    * @route   POST /api/kiosks
    * @access  Private (Admin only)
    */
-  createKiosk: async (req, res, next) => {
+  createKiosk: async (req, res) => {
     try {
-      const { id, name, location } = req.body;
+      const { name, location, base_price } = req.body;
+      const user_id = req.user.id;
+      const apiKey = 'kiosk_' + crypto.randomBytes(16).toString('hex');
 
-      if (!id || !name || !location) {
-        res.status(400);
-        throw new Error('Please provide all required fields: id, name, location');
-      }
+      await pool.query(
+        'INSERT INTO kiosks (name, location, base_price, user_id, api_key) VALUES (?, ?, ?, ?, ?)',
+        [name, location, base_price, user_id, apiKey]
+      );
 
-      const trimmedId = String(id).trim();
-      if (!trimmedId) {
-        res.status(400);
-        throw new Error('Kiosk ID cannot be empty.');
-      }
-
-      // Check if kiosk already exists
-      const existingKiosk = await kioskModel.getKioskById(trimmedId);
-      if (existingKiosk) {
-        res.status(409); // 409 Conflict is more appropriate for duplicates
-        throw new Error(`Kiosk with ID '${trimmedId}' already exists.`);
-      }
-
-      // Extract user_id from logged-in Admin's JWT
-      const user_id = req.user ? req.user.id : null;
-      if (!user_id) {
-        res.status(401);
-        throw new Error('Unauthorized: Admin User ID not found in token.');
-      }
-
-      // Generate a secure 64-character hex string API Key
-      const api_key = crypto.randomBytes(32).toString('hex');
-
-      await kioskModel.createKiosk(trimmedId, name, location, user_id, api_key);
-
-      return res.status(201).json({
-        success: true,
-        message: 'Kiosk created successfully.',
-        data: { 
-          id: trimmedId, 
-          name, 
-          location, 
-          user_id, 
-          api_key // Return the API key only on creation so the Admin can copy it
-        }
-      });
+      return res.status(201).json({ success: true, message: 'Kiosk created successfully', data: { api_key: apiKey } });
     } catch (error) {
-      next(error);
+      return res.status(500).json({ success: false, message: error.message });
     }
   },
 

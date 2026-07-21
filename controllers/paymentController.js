@@ -32,7 +32,7 @@ const uploadAdminQRIS = async (req, res) => {
     
     await PaymentProfile.upsertProfile({ user_id, payment_data });
     
-    return res.status(200).json({ success: true, fileUrl });
+    return res.status(200).json({ success: true, url: fileUrl });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }

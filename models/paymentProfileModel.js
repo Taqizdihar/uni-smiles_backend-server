@@ -27,9 +27,7 @@ const PaymentProfile = {
       return result;
     } else {
       const [result] = await pool.query(
-        `INSERT INTO payment_profiles 
-        (user_id, profile_name, payment_type, provider, is_default, status, payment_data) 
-        VALUES (?, 'Default QRIS', 'QRIS', 'Manual', 1, 'active', ?)`,
+        "INSERT INTO payment_profiles (user_id, profile_name, payment_type, provider, is_default, status, payment_data) VALUES (?, 'Default QRIS', 'manual_qris', 'manual', 1, 'active', ?)",
         [user_id, payment_data]
       );
       return result;

@@ -1,203 +1,44 @@
-const frameTemplateModel = require('../models/frameTemplateModel');
+const pool = require('../config/db');
 
-/**
- * Frame Template Controller
- * Handles HTTP requests/responses for Frame Template endpoints.
- */
-const frameTemplateController = {
-  /**
-   * @desc    Get all frame templates
-   * @route   GET /api/frame_templates
-   * @access  Public
-   */
-  getAllTemplates: async (req, res, next) => {
-    try {
-      const templates = await frameTemplateModel.getAllTemplates();
-      return res.status(200).json({
-        success: true,
-        count: templates.length,
-        data: templates
-      });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  /**
-   * @desc    Get single frame template by ID
-   * @route   GET /api/frame_templates/:id
-   * @access  Public
-   */
-  getTemplateById: async (req, res, next) => {
-    try {
-      const { id } = req.params;
-
-      if (isNaN(id)) {
-        res.status(400);
-        throw new Error('Invalid ID format. ID must be a number.');
-      }
-
-      const template = await frameTemplateModel.getTemplateById(id);
-
-      if (!template) {
-        res.status(404);
-        throw new Error(`Frame template not found with ID: ${id}`);
-      }
-
-      return res.status(200).json({
-        success: true,
-        data: template
-      });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  /**
-   * @desc    Upload frame template image
-   * @route   POST /api/frame_templates/upload
-   * @access  Public
-   */
-  uploadTemplateImage: async (req, res, next) => {
-    try {
-      if (!req.file) {
-        res.status(400);
-        throw new Error('No image file provided in upload request.');
-      }
-      return res.status(201).json({
-        success: true,
-        message: 'Frame image uploaded successfully.',
-        url: `/uploads/${req.file.filename}`
-      });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  /**
-   * @desc    Create a new frame template
-   * @route   POST /api/frame_templates
-   * @access  Public
-   */
-  createTemplate: async (req, res, next) => {
-    try {
-      const { name, category, image_url, slot_count, layout_config } = req.body;
-
-      if (!name || !category || !image_url || slot_count === undefined || !layout_config) {
-        res.status(400);
-        throw new Error('Please provide all required fields: name, category, image_url, slot_count, layout_config');
-      }
-
-      if (isNaN(slot_count)) {
-        res.status(400);
-        throw new Error('slot_count must be a number.');
-      }
-
-      const newTemplate = await frameTemplateModel.createTemplate({
-        name,
-        category,
-        image_url,
-        slot_count: parseInt(slot_count, 10),
-        layout_config
-      });
-
-      return res.status(201).json({
-        success: true,
-        message: 'Frame template created successfully.',
-        data: newTemplate
-      });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  /**
-   * @desc    Update a frame template by ID
-   * @route   PUT /api/frame_templates/:id
-   * @access  Public
-   */
-  updateTemplate: async (req, res, next) => {
-    try {
-      const { id } = req.params;
-      const { name, category, image_url, slot_count, layout_config } = req.body;
-
-      if (isNaN(id)) {
-        res.status(400);
-        throw new Error('Invalid ID format. ID must be a number.');
-      }
-
-      if (!name || !category || !image_url || slot_count === undefined || !layout_config) {
-        res.status(400);
-        throw new Error('Please provide all required fields: name, category, image_url, slot_count, layout_config');
-      }
-
-      if (isNaN(slot_count)) {
-        res.status(400);
-        throw new Error('slot_count must be a number.');
-      }
-
-      // Check if template exists
-      const existing = await frameTemplateModel.getTemplateById(id);
-      if (!existing) {
-        res.status(404);
-        throw new Error(`Frame template not found with ID: ${id}`);
-      }
-
-      await frameTemplateModel.updateTemplate(id, {
-        name,
-        category,
-        image_url,
-        slot_count: parseInt(slot_count, 10),
-        layout_config
-      });
-
-      return res.status(200).json({
-        success: true,
-        message: 'Frame template updated successfully.',
-        data: {
-          id: parseInt(id, 10),
-          name,
-          category,
-          image_url,
-          slot_count: parseInt(slot_count, 10),
-          layout_config
-        }
-      });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  /**
-   * @desc    Delete a frame template by ID
-   * @route   DELETE /api/frame_templates/:id
-   * @access  Public
-   */
-  deleteTemplate: async (req, res, next) => {
-    try {
-      const { id } = req.params;
-
-      if (isNaN(id)) {
-        res.status(400);
-        throw new Error('Invalid ID format. ID must be a number.');
-      }
-
-      const existing = await frameTemplateModel.getTemplateById(id);
-      if (!existing) {
-        res.status(404);
-        throw new Error(`Frame template not found with ID: ${id}`);
-      }
-
-      await frameTemplateModel.deleteTemplate(id);
-
-      return res.status(200).json({
-        success: true,
-        message: `Frame template with ID ${id} deleted successfully.`
-      });
-    } catch (error) {
-      next(error);
-    }
+const getTemplates = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+    const [rows] = await pool.query(
+      'SELECT id, name, image_url, slot_count, layout_config, is_active FROM frame_templates WHERE user_id = ? AND deleted_at IS NULL',
+      [user_id]
+    );
+    return res.status(200).json({ success: true, data: rows });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
-module.exports = frameTemplateController;
+const uploadTemplate = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    let { name, slot_count, layout_config } = req.body;
+    const user_id = req.user.id;
+    const imageUrl = '/uploads/' + req.file.filename;
+
+    if (typeof layout_config === 'object') {
+      layout_config = JSON.stringify(layout_config);
+    }
+
+    await pool.query(
+      'INSERT INTO frame_templates (user_id, name, image_url, slot_count, layout_config, is_active) VALUES (?, ?, ?, ?, ?, 1)',
+      [user_id, name, imageUrl, slot_count, layout_config]
+    );
+
+    return res.status(201).json({ success: true, message: 'Template uploaded successfully' });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+module.exports = {
+  getTemplates,
+  uploadTemplate
+};
