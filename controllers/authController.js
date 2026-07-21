@@ -20,7 +20,7 @@ const authController = {
         throw new Error('Please provide email and password');
       }
 
-      const user = await userModel.findUserByEmail(email);
+      const user = await userModel.findByEmail(email);
       if (!user) {
         res.status(401);
         throw new Error('Invalid email or password');
@@ -39,7 +39,7 @@ const authController = {
 
       // Generate JWT
       const token = jwt.sign(
-        { id: user.id, name: user.name, email: user.email, role: normalizedRole, partner_name: user.partner_name },
+        { id: user.id, role: normalizedRole, partner_name: user.partner_name },
         process.env.JWT_SECRET,
         { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
       );
@@ -49,7 +49,7 @@ const authController = {
         token,
         user: {
           id: user.id,
-          name: user.name,
+          full_name: user.full_name,
           email: user.email,
           role: normalizedRole,
           partner_name: user.partner_name
@@ -67,16 +67,16 @@ const authController = {
    */
   register: async (req, res, next) => {
     try {
-      let { name, email, password, role, partner_name } = req.body;
-      if (!name || !email || !password || !role) {
+      let { full_name, email, password, role, partner_name } = req.body;
+      if (!full_name || !email || !password || !role) {
         res.status(400);
-        throw new Error('Please provide name, email, password, and role');
+        throw new Error('Please provide full_name, email, password, and role');
       }
 
       if (role === 'admin') role = 'Super Admin';
       else if (role === 'operator') role = 'Admin Mitra';
 
-      const existingUser = await userModel.findUserByEmail(email);
+      const existingUser = await userModel.findByEmail(email);
       if (existingUser) {
         res.status(409);
         throw new Error('Email already in use');
@@ -86,27 +86,17 @@ const authController = {
       const salt = await bcrypt.genSalt(10);
       const password_hash = await bcrypt.hash(password, salt);
 
-      const newUser = await userModel.createUser({
-        name,
+      const newUser = await userModel.create({
+        full_name,
         email,
         password_hash,
         role,
         partner_name
       });
 
-      // Also generate JWT token right away on register so client has immediate token with valid role if desired
-      const token = jwt.sign(
-        { id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role, partner_name: newUser.partner_name },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
-      );
-
       res.status(201).json({
         success: true,
-        message: 'User registered successfully',
-        token,
-        user: newUser,
-        data: newUser
+        message: 'User registered successfully'
       });
     } catch (error) {
       next(error);

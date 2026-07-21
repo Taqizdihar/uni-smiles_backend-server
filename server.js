@@ -6,6 +6,7 @@ const cors = require('cors');
 const publicRoutes = require('./routes/v1/publicRoutes');
 const kioskRoutes = require('./routes/v1/kioskRoutes');
 const adminRoutes = require('./routes/v1/adminRoutes');
+const authRoutes = require('./routes/v1/authRoutes');
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.get('/', (req, res) => {
 app.use('/api/v1/public', publicRoutes);
 app.use('/api/v1/kiosk', kioskRoutes);
 app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/auth', authRoutes);
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {

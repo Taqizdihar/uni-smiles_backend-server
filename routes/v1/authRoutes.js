@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const authController = require('../controllers/authController');
-const { verifyToken } = require('../middlewares/authMiddleware');
+const authController = require('../../controllers/authController');
+const { verifyToken } = require('../../middlewares/authMiddleware');
 
 /**
  * @route   POST /api/auth/login
@@ -15,7 +15,7 @@ router.post('/login', authController.login);
  */
 router.post('/register', authController.register);
 
-const userModel = require('../models/userModel');
+const userModel = require('../../models/userModel');
 
 /**
  * @route   GET /api/auth/me
@@ -23,7 +23,7 @@ const userModel = require('../models/userModel');
  */
 router.get('/me', verifyToken, async (req, res, next) => {
   try {
-    const user = await userModel.getUserById(req.user.id);
+    const user = await userModel.findById(req.user.id);
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -39,7 +39,13 @@ router.get('/me', verifyToken, async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      user
+      user: {
+        id: user.id,
+        full_name: user.full_name,
+        email: user.email,
+        role: user.role,
+        partner_name: user.partner_name
+      }
     });
   } catch (error) {
     next(error);
