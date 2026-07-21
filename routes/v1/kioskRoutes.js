@@ -3,12 +3,12 @@ const router = express.Router();
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
 
-const kioskAuth = require('../../middlewares/kioskAuthMiddleware');
+const verifyApiKey = require('../../middlewares/apiKeyMiddleware');
 const sessionController = require('../../controllers/sessionController');
 const photoController = require('../../controllers/photoController');
 const paymentController = require('../../controllers/paymentController');
 
-router.use(kioskAuth);
+router.use(verifyApiKey);
 
 router.get('/payments', paymentController.getKioskPaymentMethods);
 router.post('/sessions/start', sessionController.startSession);
