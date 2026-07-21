@@ -9,7 +9,7 @@ const kioskAuth = async (req, res, next) => {
     }
 
     const [kiosk] = await pool.query(
-      'SELECT id, location, base_price, status FROM kiosks WHERE api_key = ? AND deleted_at IS NULL LIMIT 1',
+      'SELECT id, location, base_price, status, user_id FROM kiosks WHERE api_key = ? AND deleted_at IS NULL LIMIT 1',
       [apiKey]
     );
 

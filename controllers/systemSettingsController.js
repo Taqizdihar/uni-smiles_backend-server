@@ -4,10 +4,16 @@ const parseValue = (value, type) => {
   switch (type) {
     case 'integer':
       return parseInt(value, 10);
+    case 'decimal':
+      return parseFloat(value);
     case 'boolean':
       return value === 'true' || value === '1';
-    case 'float':
-      return parseFloat(value);
+    case 'json':
+      try {
+        return JSON.parse(value);
+      } catch (e) {
+        return value;
+      }
     default:
       return value;
   }
