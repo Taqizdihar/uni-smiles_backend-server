@@ -249,6 +249,18 @@ x-api-key: <kiosk_api_key>
 
 ---
 
+### GET `/api/v1/kiosk/templates`
+
+Get active frame templates available for this kiosk.
+
+**Headers Required:**
+`x-api-key: <kiosk_api_key>`
+
+**Success Response (200 OK):**
+Returns an array of template objects (id, name, image_url, slot_count, layout_config).
+
+---
+
 ### GET `/api/v1/kiosk/payments`
 
 Get the payment methods available for the kiosk's owner (user).

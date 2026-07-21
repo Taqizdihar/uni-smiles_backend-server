@@ -24,6 +24,19 @@ const kioskController = {
     }
   },
 
+  getKioskTemplates: async (req, res) => {
+    try {
+      const userId = req.kiosk.user_id;
+      const [rows] = await pool.query(
+        "SELECT id, name, image_url, slot_count, layout_config FROM frame_templates WHERE user_id = ? AND is_active = 1 AND deleted_at IS NULL",
+        [userId]
+      );
+      return res.status(200).json({ success: true, data: rows });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
   getAdminKiosks: async (req, res) => {
     try {
       const user_id = req.user.id;

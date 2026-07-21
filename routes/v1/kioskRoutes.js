@@ -8,9 +8,12 @@ const sessionController = require('../../controllers/sessionController');
 const photoController = require('../../controllers/photoController');
 const paymentController = require('../../controllers/paymentController');
 
+const kioskController = require('../../controllers/kioskController');
+
 router.use(verifyApiKey);
 
 router.get('/payments', paymentController.getKioskPaymentMethods);
+router.get('/templates', kioskController.getKioskTemplates);
 router.post('/sessions/start', sessionController.startSession);
 router.post('/sessions/:session_code/payment', sessionController.verifyPayment);
 router.post('/sessions/:session_code/photos', upload.single('photo'), photoController.uploadPhoto);
