@@ -1,36 +1,22 @@
 const pool = require('../config/db');
 
-/**
- * Photo Model
- * Handles database operations for the `photos` table.
- */
-const photoModel = {
-  /**
-   * Save a photo record to the database
-   * @param {string} sessionId 
-   * @param {string} url 
-   * @returns {Promise<Object>} Created photo record
-   */
-  savePhoto: async (sessionId, url) => {
+const Photo = {
+  async create(photoData) {
+    const { session_id, url, email_sent_to } = photoData;
     const [result] = await pool.query(
-      'INSERT INTO photos (session_id, url) VALUES (?, ?)',
-      [sessionId, url]
+      'INSERT INTO photos (session_id, url, email_sent_to) VALUES (?, ?, ?)',
+      [session_id, url, email_sent_to || null]
     );
-    return { id: result.insertId, session_id: sessionId, url };
+    return result;
   },
 
-  /**
-   * Retrieve all photos for a given session ID
-   * @param {string} sessionId 
-   * @returns {Promise<Array>} List of photos
-   */
-  getPhotosBySession: async (sessionId) => {
+  async findBySessionId(sessionId) {
     const [rows] = await pool.query(
-      'SELECT * FROM photos WHERE session_id = ? ORDER BY id ASC',
+      'SELECT id, session_id, url, email_sent_to, created_at FROM photos WHERE session_id = ?',
       [sessionId]
     );
     return rows;
-  }
+  },
 };
 
-module.exports = photoModel;
+module.exports = Photo;

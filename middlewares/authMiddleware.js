@@ -1,77 +1,48 @@
 const jwt = require('jsonwebtoken');
+const pool = require('../config/db');
 
-/**
- * Verify Token Middleware
- * Protects routes by requiring a valid JWT in the Authorization header.
- */
-const verifyToken = (req, res, next) => {
-  let token;
-  
-  // Check if Bearer token is present
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    token = req.headers.authorization.split(' ')[1];
-  }
-
-  if (!token) {
-    return res.status(401).json({
-      success: false,
-      message: 'Not authorized, no token provided'
-    });
-  }
-
+const verifyToken = async (req, res, next) => {
   try {
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Normalize role strings to ensure compatibility with Admin Dashboard database roles
-    if (decoded.role === 'admin') {
-      decoded.role = 'Super Admin';
-    } else if (decoded.role === 'operator') {
-      decoded.role = 'Admin Mitra';
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+    if (!token) {
+      return res.status(401).json({ success: false, message: 'Access denied. No token provided.' });
     }
 
-    const validRoles = ['Super Admin', 'Admin Mitra', 'Viewer'];
-    if (!decoded.role || !validRoles.includes(decoded.role)) {
-      return res.status(403).json({
-        success: false,
-        message: `Forbidden: Role '${decoded.role}' is not authorized to access this system`
-      });
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ success: false, message: 'Invalid or expired token.' });
     }
 
-    // Attach decoded user info to request object
-    req.user = decoded;
+    const [user] = await pool.query(
+      'SELECT id, role, partner_name FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1',
+      [decoded.id]
+    );
+
+    if (user.length === 0) {
+      return res.status(401).json({ success: false, message: 'User not found or has been deleted' });
+    }
+
+    req.user = user[0];
     next();
   } catch (error) {
-    return res.status(403).json({
-      success: false,
-      message: 'Not authorized, token failed or expired'
-    });
+    return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-/**
- * Authorize Roles Middleware
- * Restricts access to specific user roles registered in the database.
- */
-const authorizeRoles = (...allowedRoles) => {
+const requireRole = (allowedRoles) => {
   return (req, res, next) => {
-    if (!req.user || !req.user.role) {
+    if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        message: 'Forbidden: Access denied, user role not found'
+        message: 'Forbidden. You do not have the required role to access this resource.',
       });
     }
-
-    const userRole = req.user.role;
-    if (!allowedRoles.includes(userRole)) {
-      return res.status(403).json({
-        success: false,
-        message: `Forbidden: Role '${userRole}' is not allowed to access this resource`
-      });
-    }
-
     next();
   };
 };
 
-module.exports = { verifyToken, authorizeRoles };
+module.exports = { verifyToken, requireRole };

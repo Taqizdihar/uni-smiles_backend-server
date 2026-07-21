@@ -1,35 +1,31 @@
-const kioskModel = require('../models/kioskModel');
+const pool = require('../config/db');
 
-/**
- * Kiosk Authentication Middleware (Machine-to-Machine)
- * Validates the hardware kiosk requests using an API Key passed in the `x-api-key` header.
- */
-const kioskAuthMiddleware = async (req, res, next) => {
+const kioskAuth = async (req, res, next) => {
   try {
     const apiKey = req.headers['x-api-key'];
 
     if (!apiKey) {
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized: Missing API Key in x-api-key header.'
-      });
+      return res.status(401).json({ success: false, message: 'API Key is missing' });
     }
 
-    const kiosk = await kioskModel.getKioskByApiKey(apiKey);
+    const [kiosk] = await pool.query(
+      'SELECT id, location, base_price, status FROM kiosks WHERE api_key = ? AND deleted_at IS NULL LIMIT 1',
+      [apiKey]
+    );
 
-    if (!kiosk) {
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized: Invalid API Key.'
-      });
+    if (kiosk.length === 0) {
+      return res.status(401).json({ success: false, message: 'Invalid API Key or Kiosk has been deleted' });
     }
 
-    // Attach kiosk payload to request object
-    req.kiosk = kiosk;
+    if (kiosk[0].status === 'offline') {
+      return res.status(403).json({ success: false, message: 'Kiosk is currently offline' });
+    }
+
+    req.kiosk = kiosk[0];
     next();
   } catch (error) {
-    next(error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-module.exports = kioskAuthMiddleware;
+module.exports = kioskAuth;
