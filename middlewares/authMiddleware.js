@@ -23,18 +23,23 @@ const verifyToken = (req, res, next) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Attach decoded user info to request object
-    req.user = decoded;
+    // Normalize role strings to ensure compatibility with Admin Dashboard database roles
+    if (decoded.role === 'admin') {
+      decoded.role = 'Super Admin';
+    } else if (decoded.role === 'operator') {
+      decoded.role = 'Admin Mitra';
+    }
 
-    // Ensure the role is valid for access
     const validRoles = ['Super Admin', 'Admin Mitra', 'Viewer'];
-    if (req.user && !validRoles.includes(req.user.role)) {
+    if (!decoded.role || !validRoles.includes(decoded.role)) {
       return res.status(403).json({
         success: false,
-        message: `Not authorized, role ${req.user.role} is invalid`
+        message: `Forbidden: Role '${decoded.role}' is not authorized to access this system`
       });
     }
 
+    // Attach decoded user info to request object
+    req.user = decoded;
     next();
   } catch (error) {
     return res.status(403).json({
@@ -44,4 +49,29 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-module.exports = { verifyToken };
+/**
+ * Authorize Roles Middleware
+ * Restricts access to specific user roles registered in the database.
+ */
+const authorizeRoles = (...allowedRoles) => {
+  return (req, res, next) => {
+    if (!req.user || !req.user.role) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Access denied, user role not found'
+      });
+    }
+
+    const userRole = req.user.role;
+    if (!allowedRoles.includes(userRole)) {
+      return res.status(403).json({
+        success: false,
+        message: `Forbidden: Role '${userRole}' is not allowed to access this resource`
+      });
+    }
+
+    next();
+  };
+};
+
+module.exports = { verifyToken, authorizeRoles };

@@ -54,6 +54,27 @@ const frameTemplateController = {
   },
 
   /**
+   * @desc    Upload frame template image
+   * @route   POST /api/frame_templates/upload
+   * @access  Public
+   */
+  uploadTemplateImage: async (req, res, next) => {
+    try {
+      if (!req.file) {
+        res.status(400);
+        throw new Error('No image file provided in upload request.');
+      }
+      return res.status(201).json({
+        success: true,
+        message: 'Frame image uploaded successfully.',
+        url: `/uploads/${req.file.filename}`
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
    * @desc    Create a new frame template
    * @route   POST /api/frame_templates
    * @access  Public

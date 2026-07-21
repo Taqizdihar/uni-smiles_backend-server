@@ -15,15 +15,35 @@ router.post('/login', authController.login);
  */
 router.post('/register', authController.register);
 
+const userModel = require('../models/userModel');
+
 /**
  * @route   GET /api/auth/me
- * @desc    Get current logged in user payload (Test route)
+ * @desc    Get current logged in user profile from database
  */
-router.get('/me', verifyToken, (req, res) => {
-  res.status(200).json({
-    success: true,
-    user: req.user
-  });
+router.get('/me', verifyToken, async (req, res, next) => {
+  try {
+    const user = await userModel.getUserById(req.user.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found in database'
+      });
+    }
+
+    // Ensure role normalization matches dashboard expectations
+    let normalizedRole = user.role;
+    if (normalizedRole === 'admin') normalizedRole = 'Super Admin';
+    else if (normalizedRole === 'operator') normalizedRole = 'Admin Mitra';
+    user.role = normalizedRole;
+
+    res.status(200).json({
+      success: true,
+      user
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 module.exports = router;

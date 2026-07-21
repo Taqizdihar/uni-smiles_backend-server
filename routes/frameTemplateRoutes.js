@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const frameTemplateController = require('../controllers/frameTemplateController');
+const upload = require('../middlewares/uploadMiddleware');
 
 /**
  * @route   GET /api/frame_templates
@@ -13,6 +14,12 @@ router.get('/', frameTemplateController.getAllTemplates);
  * @desc    Retrieve a specific frame template by ID
  */
 router.get('/:id', frameTemplateController.getTemplateById);
+
+/**
+ * @route   POST /api/frame_templates/upload
+ * @desc    Upload PNG frame template image
+ */
+router.post('/upload', upload.single('image'), frameTemplateController.uploadTemplateImage);
 
 /**
  * @route   POST /api/frame_templates
