@@ -74,13 +74,14 @@ const kioskController = {
    */
   createKiosk: async (req, res) => {
     try {
-      const { name, location, base_price } = req.body;
+      const { id, name, location, base_price } = req.body;
       const user_id = req.user.id;
       const apiKey = 'kiosk_' + crypto.randomBytes(16).toString('hex');
+      const finalId = id || 'KSK-' + Math.floor(1000 + Math.random() * 9000);
 
       await pool.query(
-        'INSERT INTO kiosks (name, location, base_price, user_id, api_key) VALUES (?, ?, ?, ?, ?)',
-        [name, location, base_price, user_id, apiKey]
+        'INSERT INTO kiosks (id, user_id, name, location, base_price, api_key, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [finalId, user_id, name, location, base_price, apiKey, 'offline']
       );
 
       return res.status(201).json({ success: true, message: 'Kiosk created successfully', data: { api_key: apiKey } });
